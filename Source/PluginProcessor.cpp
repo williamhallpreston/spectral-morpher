@@ -109,7 +109,7 @@ void SpectralMorpherAudioProcessor::prepareToPlay(double sampleRate, int samples
     spectralEngine->setSpectralTilt  (*tiltParam);
     spectralEngine->setHarmonics     (*harmonicsParam);
     spectralEngine->setMix           (*mixParam);
-    spectralEngine->setOutputGain    (juce::Decibels::decibelsToGain(*outputGainParam));
+    spectralEngine->setOutputGain    (juce::Decibels::decibelsToGain(outputGainParam->load()));
 }
 
 void SpectralMorpherAudioProcessor::releaseResources()

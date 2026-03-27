@@ -87,7 +87,7 @@ void SpectralLookAndFeel::drawToggleButton(juce::Graphics& g,
 
     // Text
     g.setColour(toggled ? accentColour : accentColour.withAlpha(0.55f));
-    g.setFont(juce::Font("Arial", 11.0f, juce::Font::bold));
+    g.setFont(juce::FontOptions("Arial", 11.0f, juce::Font::bold));
     g.drawFittedText(button.getButtonText(), bounds.toNearestInt(),
                      juce::Justification::centred, 1);
 
@@ -103,7 +103,7 @@ void SpectralLookAndFeel::drawToggleButton(juce::Graphics& g,
 
 juce::Font SpectralLookAndFeel::getLabelFont(juce::Label&)
 {
-    return juce::Font("Arial", 10.0f, juce::Font::plain);
+    return juce::Font(juce::FontOptions("Arial", 10.0f, juce::Font::plain));
 }
 
 //==============================================================================
@@ -246,7 +246,7 @@ LabelledKnob::LabelledKnob(const juce::String& labelText,
 
     label.setText(labelText, juce::dontSendNotification);
     label.setJustificationType(juce::Justification::centred);
-    label.setFont(juce::Font("Arial", 10.5f, juce::Font::plain));
+    label.setFont(juce::Font(juce::FontOptions("Arial", 10.5f, juce::Font::plain)));
     label.setColour(juce::Label::textColourId, juce::Colour(0xFF7899BB));
     addAndMakeVisible(label);
 
@@ -283,7 +283,7 @@ SpectralMorpherAudioProcessorEditor::SpectralMorpherAudioProcessorEditor(
 
     // Title
     titleLabel.setText("SPECTRAL MORPHER", juce::dontSendNotification);
-    titleLabel.setFont(juce::Font("Arial", 18.0f, juce::Font::bold));
+    titleLabel.setFont(juce::Font(juce::FontOptions("Arial", 18.0f, juce::Font::bold)));
     titleLabel.setJustificationType(juce::Justification::left);
     titleLabel.setColour(juce::Label::textColourId, juce::Colour(0xFF00E5FF));
     addAndMakeVisible(titleLabel);

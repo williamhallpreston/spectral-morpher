@@ -211,7 +211,6 @@ void SpectralEngine::processFrame(ChannelState& ch, int channelIdx)
 void SpectralEngine::applySpectralShift(ChannelState& ch, float semitones)
 {
     const float ratio    = std::pow(2.0f, semitones / 12.0f);
-    const int   maxShift = (int)((ratio - 1.0f) * NUM_BINS);
 
     std::vector<std::complex<float>> shifted(NUM_BINS, {0.0f, 0.0f});
 
