@@ -1,0 +1,163 @@
+name: CI — Build & Test
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  release:
+    types: [created]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─── macOS arm64 (Apple Silicon) ──────────────────────────────────────────
+  build-macos:
+    name: macOS Apple Silicon
+    runs-on: macos-14          # M1 runner — native arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive   # pulls JUCE submodule
+
+      - name: Install dependencies
+        run: brew install cmake ninja
+
+      - name: Configure (arm64, Release)
+        run: |
+          cmake -B build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="arm64" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="12.0"
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Verify VST3 bundle
+        run: |
+          VST3=$(find build -name "*.vst3" | head -1)
+          echo "Found: $VST3"
+          file "$VST3/Contents/MacOS/"*
+          lipo -info "$VST3/Contents/MacOS/"*
+
+      - name: Upload VST3 artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpectralMorpher-macOS-arm64
+          path: build/**/*.vst3
+          if-no-files-found: error
+
+      - name: Upload AU artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpectralMorpher-macOS-AU
+          path: build/**/*.component
+          if-no-files-found: warn   # AU may not always be produced in CI
+
+  # ─── macOS Universal Binary (arm64 + x86_64) ──────────────────────────────
+  build-macos-universal:
+    name: macOS Universal Binary
+    runs-on: macos-14
+    if: github.event_name == 'release'   # only on release tags
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: brew install cmake ninja
+
+      - name: Configure (universal)
+        run: |
+          cmake -B build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="12.0"
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Verify universal binary
+        run: |
+          VST3=$(find build -name "*.vst3" | head -1)
+          lipo -info "$VST3/Contents/MacOS/"*
+
+      - name: Package release zip
+        run: |
+          cd build
+          VST3=$(find . -name "*.vst3" | head -1)
+          zip -r ../SpectralMorpher-universal.zip "$VST3"
+
+      - name: Upload release asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpectralMorpher-macOS-Universal
+          path: SpectralMorpher-universal.zip
+
+  # ─── Windows VST3 ─────────────────────────────────────────────────────────
+  build-windows:
+    name: Windows x64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure
+        run: |
+          cmake -B build `
+            -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Upload VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpectralMorpher-Windows-x64
+          path: build/**/*.vst3
+          if-no-files-found: error
+
+  # ─── Linux VST3 ───────────────────────────────────────────────────────────
+  build-linux:
+    name: Linux x64
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake ninja-build \
+            libasound2-dev \
+            libfreetype-dev \
+            libcurl4-openssl-dev \
+            libx11-dev libxcomposite-dev libxcursor-dev \
+            libxext-dev libxinerama-dev libxrandr-dev libxrender-dev \
+            libglu1-mesa-dev mesa-common-dev \
+            libfontconfig1-dev libwebkit2gtk-4.0-dev
+
+      - name: Configure
+        run: |
+          cmake -B build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Upload VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpectralMorpher-Linux-x64
+          path: build/**/*.vst3
+          if-no-files-found: error

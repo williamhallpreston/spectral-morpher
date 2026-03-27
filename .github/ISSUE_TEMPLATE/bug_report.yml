@@ -1,0 +1,81 @@
+name: 🐛 Bug Report
+description: Report a crash, audio glitch, or unexpected behaviour
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report. Please fill in as much detail as possible.
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Windows
+        - Linux
+    validations:
+      required: true
+
+  - type: input
+    id: os-version
+    attributes:
+      label: OS version
+      placeholder: e.g. macOS 14.4 Sonoma
+    validations:
+      required: true
+
+  - type: input
+    id: daw
+    attributes:
+      label: DAW & version
+      placeholder: e.g. Ableton Live 12.0.5
+    validations:
+      required: true
+
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      placeholder: e.g. v1.0.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: format
+    attributes:
+      label: Plugin format
+      options:
+        - VST3
+        - AU
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: What happened? What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Load plugin on an audio track
+        2. Set Morph to 100%
+        3. Enable Freeze
+        4. …
+    validations:
+      required: true
+
+  - type: textarea
+    id: crash-log
+    attributes:
+      label: Crash log / console output
+      description: Paste any crash report or DAW log here
+      render: text
