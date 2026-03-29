@@ -39,6 +39,15 @@ SpectralMorpherAudioProcessor::createParameterLayout()
         [](float v, int) { return juce::String(v * 100.0f, 1) + "%"; }));
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "spectralGate", "Spectral Gate",
+        juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f,
+        juce::String(), juce::AudioProcessorParameter::genericParameter,
+        [](float v, int) {
+            if (v < 0.001f) return juce::String("Off");
+            return juce::String(v * 100.0f, 1) + "%";
+        }));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "mix", "Dry/Wet Mix",
         juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 1.0f,
         juce::String(), juce::AudioProcessorParameter::genericParameter,
@@ -67,19 +76,20 @@ SpectralMorpherAudioProcessor::SpectralMorpherAudioProcessor()
     freezeParam        = apvts.getRawParameterValue("freeze");
     tiltParam          = apvts.getRawParameterValue("tilt");
     harmonicsParam     = apvts.getRawParameterValue("harmonics");
+    spectralGateParam  = apvts.getRawParameterValue("spectralGate");
     mixParam           = apvts.getRawParameterValue("mix");
     outputGainParam    = apvts.getRawParameterValue("outputGain");
 
     // Register as listener for all params
     for (const auto& id : { "morphAmount", "spectralShift", "freeze",
-                             "tilt", "harmonics", "mix", "outputGain" })
+                             "tilt", "harmonics", "spectralGate", "mix", "outputGain" })
         apvts.addParameterListener(id, this);
 }
 
 SpectralMorpherAudioProcessor::~SpectralMorpherAudioProcessor()
 {
     for (const auto& id : { "morphAmount", "spectralShift", "freeze",
-                             "tilt", "harmonics", "mix", "outputGain" })
+                             "tilt", "harmonics", "spectralGate", "mix", "outputGain" })
         apvts.removeParameterListener(id, this);
 }
 
@@ -93,6 +103,7 @@ void SpectralMorpherAudioProcessor::parameterChanged(const juce::String& paramID
     else if (paramID == "freeze")        spectralEngine->setFreeze(newValue > 0.5f);
     else if (paramID == "tilt")          spectralEngine->setSpectralTilt(newValue);
     else if (paramID == "harmonics")     spectralEngine->setHarmonics(newValue);
+    else if (paramID == "spectralGate")  spectralEngine->setSpectralGate(newValue);
     else if (paramID == "mix")           spectralEngine->setMix(newValue);
     else if (paramID == "outputGain")    spectralEngine->setOutputGain(juce::Decibels::decibelsToGain(newValue));
 }
@@ -100,6 +111,7 @@ void SpectralMorpherAudioProcessor::parameterChanged(const juce::String& paramID
 //==============================================================================
 void SpectralMorpherAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
+    cachedSampleRate = sampleRate;
     spectralEngine->prepare(sampleRate, samplesPerBlock);
 
     // Push current parameter values to engine
@@ -108,6 +120,7 @@ void SpectralMorpherAudioProcessor::prepareToPlay(double sampleRate, int samples
     spectralEngine->setFreeze        (*freezeParam > 0.5f);
     spectralEngine->setSpectralTilt  (*tiltParam);
     spectralEngine->setHarmonics     (*harmonicsParam);
+    spectralEngine->setSpectralGate  (*spectralGateParam);
     spectralEngine->setMix           (*mixParam);
     spectralEngine->setOutputGain    (juce::Decibels::decibelsToGain(outputGainParam->load()));
 }

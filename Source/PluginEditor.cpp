@@ -112,8 +112,9 @@ juce::Font SpectralLookAndFeel::getLabelFont(juce::Label&)
 SpectrumAnalyser::SpectrumAnalyser(SpectralMorpherAudioProcessor& p)
     : processor(p)
 {
-    smoothInput .assign(NUM_DISPLAY_BINS, 0.0f);
-    smoothMorph .assign(NUM_DISPLAY_BINS, 0.0f);
+    smoothInput  .assign(NUM_DISPLAY_BINS, 0.0f);
+    smoothMorph  .assign(NUM_DISPLAY_BINS, 0.0f);
+    freezeParam = p.getAPVTS().getRawParameterValue("freeze");
     startTimerHz(30);
 }
 
@@ -227,9 +228,59 @@ void SpectrumAnalyser::paint(juce::Graphics& g)
     g.setColour(morphColour.withAlpha(0.9f));
     g.drawText("MORPH", 54, 8, 45, 12, juce::Justification::left);
 
-    // Border
-    g.setColour(juce::Colour(0xFF00E5FF).withAlpha(0.2f));
-    g.drawRoundedRectangle(bounds.reduced(0.5f), 6.0f, 1.0f);
+    // Frequency axis labels (Hz) along the bottom
+    {
+        const float sr       = (float)processor.getCachedSampleRate();
+        const float maxLog   = std::log2((float)SpectralEngine::NUM_BINS);
+        const int   labelY   = (int)H - 13;
+
+        auto freqToX = [&](float freqHz) -> float
+        {
+            const float bin  = freqHz * (float)SpectralEngine::FFT_SIZE / sr;
+            const float logB = std::log2(std::max(bin, 1.0f));
+            return W * logB / maxLog;
+        };
+
+        g.setFont(8.0f);
+        for (auto [freqHz, label] : { std::pair<float, const char*>
+                { 100.f, "100" }, { 500.f, "500" },
+                { 1000.f, "1k" }, { 5000.f, "5k" },
+                { 10000.f, "10k" }, { 20000.f, "20k" } })
+        {
+            const float xPos = freqToX(freqHz);
+            if (xPos < 4.0f || xPos > W - 4.0f) continue;
+            g.setColour(juce::Colour(0xFF334466));
+            g.drawLine(xPos, H - 5.0f, xPos, H - 1.0f, 1.0f);
+            g.setColour(juce::Colour(0xFF445577));
+            g.drawText(label, (int)xPos - 14, labelY, 28, 10,
+                       juce::Justification::centred);
+        }
+    }
+
+    // Freeze indicator
+    const bool isFrozen = (freezeParam != nullptr) && (freezeParam->load() > 0.5f);
+    if (isFrozen)
+    {
+        // Bright cyan border glow when frozen
+        g.setColour(juce::Colour(0xFF00E5FF).withAlpha(0.55f));
+        g.drawRoundedRectangle(bounds.reduced(0.5f), 6.0f, 2.5f);
+        g.setColour(juce::Colour(0xFF00E5FF).withAlpha(0.12f));
+        g.drawRoundedRectangle(bounds.reduced(3.5f), 4.5f, 4.0f);
+
+        // FROZEN badge top-right
+        const juce::Rectangle<float> badge (W - 60.0f, 5.0f, 54.0f, 14.0f);
+        g.setColour(juce::Colour(0xFF00E5FF).withAlpha(0.20f));
+        g.fillRoundedRectangle(badge, 3.0f);
+        g.setColour(juce::Colour(0xFF00E5FF).withAlpha(0.85f));
+        g.setFont(juce::FontOptions("Arial", 8.5f, juce::Font::bold));
+        g.drawText("FROZEN", badge.toNearestInt(), juce::Justification::centred);
+    }
+    else
+    {
+        // Normal border
+        g.setColour(juce::Colour(0xFF00E5FF).withAlpha(0.2f));
+        g.drawRoundedRectangle(bounds.reduced(0.5f), 6.0f, 1.0f);
+    }
 }
 
 //==============================================================================
@@ -241,7 +292,7 @@ LabelledKnob::LabelledKnob(const juce::String& labelText,
                             juce::LookAndFeel& laf)
 {
     slider.setLookAndFeel(&laf);
-    slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 16);
+    slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 58, 16);
     addAndMakeVisible(slider);
 
     label.setText(labelText, juce::dontSendNotification);
@@ -273,13 +324,14 @@ SpectralMorpherAudioProcessorEditor::SpectralMorpherAudioProcessorEditor(
       shiftKnob    ("SHIFT",     "spectralShift", p.getAPVTS(), laf),
       tiltKnob     ("TILT",      "tilt",          p.getAPVTS(), laf),
       harmonicsKnob("HARMONICS", "harmonics",     p.getAPVTS(), laf),
+      gateKnob     ("GATE",      "spectralGate",  p.getAPVTS(), laf),
       mixKnob      ("MIX",       "mix",           p.getAPVTS(), laf),
       gainKnob     ("GAIN",      "outputGain",    p.getAPVTS(), laf)
 {
     setLookAndFeel(&laf);
-    setSize(640, 460);
+    setSize(700, 460);
     setResizable(true, true);
-    setResizeLimits(480, 360, 1280, 720);
+    setResizeLimits(560, 360, 1280, 720);
 
     // Title
     titleLabel.setText("SPECTRAL MORPHER", juce::dontSendNotification);
@@ -299,6 +351,7 @@ SpectralMorpherAudioProcessorEditor::SpectralMorpherAudioProcessorEditor(
     addAndMakeVisible(shiftKnob);
     addAndMakeVisible(tiltKnob);
     addAndMakeVisible(harmonicsKnob);
+    addAndMakeVisible(gateKnob);
     addAndMakeVisible(mixKnob);
     addAndMakeVisible(gainKnob);
 }
@@ -350,8 +403,9 @@ void SpectralMorpherAudioProcessorEditor::resized()
     area.removeFromTop(12);
 
     // Knob row at the bottom
-    const int numKnobs = 6;
+    const int numKnobs = 7;
     const int knobW    = area.getWidth() / numKnobs;
-    for (auto* k : { &morphKnob, &shiftKnob, &tiltKnob, &harmonicsKnob, &mixKnob, &gainKnob })
+    for (auto* k : { &morphKnob, &shiftKnob, &tiltKnob, &harmonicsKnob,
+                     &gateKnob, &mixKnob, &gainKnob })
         k->setBounds(area.removeFromLeft(knobW).reduced(4, 0));
 }
