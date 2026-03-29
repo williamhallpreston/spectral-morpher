@@ -50,6 +50,8 @@ private:
     std::vector<float> smoothInput;
     std::vector<float> smoothMorph;
 
+    std::atomic<float>* freezeParam = nullptr;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SpectrumAnalyser)
 };
 
@@ -97,6 +99,7 @@ private:
     LabelledKnob shiftKnob;
     LabelledKnob tiltKnob;
     LabelledKnob harmonicsKnob;
+    LabelledKnob gateKnob;
     LabelledKnob mixKnob;
     LabelledKnob gainKnob;
 

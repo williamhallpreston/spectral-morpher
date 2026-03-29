@@ -41,6 +41,8 @@ public:
     bool isMidiEffect() const override { return false; }
     double getTailLengthSeconds() const override { return 0.5; }
 
+    double getCachedSampleRate() const { return cachedSampleRate; }
+
     //==============================================================================
     int getNumPrograms() override { return 1; }
     int getCurrentProgram() override { return 0; }
@@ -68,12 +70,15 @@ private:
 
     std::unique_ptr<SpectralEngine> spectralEngine;
 
+    double cachedSampleRate = 44100.0;
+
     // Parameter pointers (cached for performance)
     std::atomic<float>* morphAmountParam   = nullptr;
     std::atomic<float>* spectralShiftParam = nullptr;
     std::atomic<float>* freezeParam        = nullptr;
     std::atomic<float>* tiltParam          = nullptr;
     std::atomic<float>* harmonicsParam     = nullptr;
+    std::atomic<float>* spectralGateParam  = nullptr;
     std::atomic<float>* mixParam           = nullptr;
     std::atomic<float>* outputGainParam    = nullptr;
 

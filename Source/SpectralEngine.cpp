@@ -154,20 +154,25 @@ void SpectralEngine::processFrame(ChannelState& ch, int channelIdx)
     if (std::abs(tilt) > 0.01f)
         applySpectralTilt(ch, tilt);
 
-    // --- 6. Harmonic Enhancer ---
+    // --- 6. Spectral Gate ---
+    const float gate = spectralGate.load();
+    if (gate > 0.001f)
+        applySpectralGate(ch, gate);
+
+    // --- 7. Harmonic Enhancer ---
     const float harms = harmonics.load();
     if (harms > 0.001f)
         applyHarmonicEnhancer(ch, harms);
 
-    // --- 7. Morph (cross-fade magnitudes with original) ---
+    // --- 8. Morph (cross-fade magnitudes with original) ---
     const float morph = morphAmount.load();
     applyMorph(ch, morph);
 
-    // --- 8. Update UI spectrum (channel 0 only) ---
+    // --- 9. Update UI spectrum (channel 0 only) ---
     if (channelIdx == 0)
         updateUISpectrum(ch);
 
-    // --- 9. Inverse FFT + overlap-add ---
+    // --- 10. Inverse FFT + overlap-add ---
     // Reconstruct complex buffer from magnitude + unwrapped phase
     std::vector<float> ifftBuf(FFT_SIZE * 2, 0.0f);
     for (int k = 0; k < NUM_BINS; ++k)
@@ -235,6 +240,35 @@ void SpectralEngine::applySpectralTilt(ChannelState& ch, float tilt)
         const float gain = std::pow(10.0f, tilt * (freq - 0.5f) * 12.0f / 20.0f); // ±6dB/octave
         ch.spectrum[k]   *= gain;
         ch.magnitudes[k]  = std::abs(ch.spectrum[k]);
+    }
+}
+
+void SpectralEngine::applySpectralGate(ChannelState& ch, float amount)
+{
+    // Spectral gate: suppress bins below a relative threshold.
+    // amount=0 → no effect; amount=1 → only the loudest 50% of peak survives.
+    // Uses a smooth quadratic knee so there is no hard click artefact.
+
+    // Find peak magnitude
+    float peakMag = 0.0f;
+    for (int k = 0; k < NUM_BINS; ++k)
+        peakMag = std::max(peakMag, ch.magnitudes[k]);
+
+    if (peakMag < 1e-9f) return;
+
+    const float threshold = amount * peakMag * 0.5f;
+
+    for (int k = 0; k < NUM_BINS; ++k)
+    {
+        const float mag = ch.magnitudes[k];
+        if (mag < threshold)
+        {
+            // Quadratic fade-to-zero below threshold (smooth knee)
+            const float ratio = mag / threshold;
+            const float fade  = ratio * ratio;
+            ch.spectrum[k]   *= fade;
+            ch.magnitudes[k]  = mag * fade;
+        }
     }
 }
 

@@ -46,6 +46,7 @@ public:
     void setFreeze(bool v)          { freeze.store(v); }
     void setSpectralTilt(float v)   { spectralTilt.store(v); }
     void setHarmonics(float v)      { harmonics.store(v); }
+    void setSpectralGate(float v)   { spectralGate.store(v); }
     void setMix(float v)            { dryWet.store(v); }
     void setOutputGain(float v)     { outputGain.store(v); }
 
@@ -97,6 +98,7 @@ private:
     std::atomic<bool>  freeze       { false };
     std::atomic<float> spectralTilt { 0.0f };
     std::atomic<float> harmonics    { 0.0f };
+    std::atomic<float> spectralGate { 0.0f };
     std::atomic<float> dryWet       { 1.0f };
     std::atomic<float> outputGain   { 1.0f };
 
@@ -105,6 +107,7 @@ private:
     void applyWindow(ChannelState& ch);
     void applySpectralShift(ChannelState& ch, float shiftAmount);
     void applySpectralTilt(ChannelState& ch, float tilt);
+    void applySpectralGate(ChannelState& ch, float amount);
     void applyHarmonicEnhancer(ChannelState& ch, float amount);
     void applyMorph(ChannelState& ch, float amount);
     void updateUISpectrum(ChannelState& ch);
